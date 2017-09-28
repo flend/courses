@@ -174,7 +174,7 @@ class Vgg16():
                 batches : A keras.preprocessing.image.ImageDataGenerator object.
                           See definition for get_batches().
         """
-        self.ft(batches.nb_class)
+        self.ft(batches.num_class)
         classes = list(iter(batches.class_indices)) # get a list of all the class labels
         
         # batches.class_indices is a dict with the class name as key and an index as value
@@ -209,8 +209,8 @@ class Vgg16():
             Fits the model on data yielded batch-by-batch by a Python generator.
             See Keras documentation: https://keras.io/models/model/
         """
-        self.model.fit_generator(batches, samples_per_epoch=batches.nb_sample, nb_epoch=nb_epoch,
-                validation_data=val_batches, nb_val_samples=val_batches.nb_sample)
+        self.model.fit_generator(batches, samples_per_epoch=batches.samples, nb_epoch=nb_epoch,
+                validation_data=val_batches, nb_val_samples=val_batches.samples)
 
 
     def test(self, path, batch_size=8):
@@ -227,5 +227,5 @@ class Vgg16():
     
         """
         test_batches = self.get_batches(path, shuffle=False, batch_size=batch_size, class_mode=None)
-        return test_batches, self.model.predict_generator(test_batches, test_batches.nb_sample)
+        return test_batches, self.model.predict_generator(test_batches, test_batches.samples)
 
