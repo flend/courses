@@ -4,9 +4,12 @@ import torch.nn.parallel
 
 class DCGAN_D(nn.Module):
     def conv_block(self, main, name, inf, of, a, b, c, bn=True):
-        main.add_module(f'{name}-{inf}.{of}.conv', nn.Conv2d(inf, of, a, b, c, bias=False))
-        main.add_module(f'{name}-{of}.batchnorm', nn.BatchNorm2d(of))
-        main.add_module(f'{name}-{of}.relu', nn.LeakyReLU(0.2, inplace=True))
+        convName = str.format("{}-{}.{}.conv", name, inf, of)
+        main.add_module(convName, nn.Conv2d(inf, of, a, b, c, bias=False))
+        batchName = str.format("{}-{}.batchnorm", name, of)
+        main.add_module(batchName, nn.BatchNorm2d(of))
+        reluName = str.format("{}-{}.relu", name, of)
+        main.add_module(reluName, nn.LeakyReLU(0.2, inplace=True))
 
     def __init__(self, isize, nc, ndf, ngpu, n_extra_layers=0):
         super(DCGAN_D, self).__init__()
@@ -19,14 +22,16 @@ class DCGAN_D(nn.Module):
         csize, cndf = isize / 2, ndf
 
         for t in range(n_extra_layers):
-            self.conv_block(main, f'extra-{t}', cndf, cndf, 3, 1, 1)
+            extraName = str.format("extra-{}", t)
+            self.conv_block(main, extraName, cndf, cndf, 3, 1, 1)
 
         while csize > 4:
             self.conv_block(main, 'pyramid', cndf, cndf*2, 4, 2, 1)
             cndf *= 2; csize /= 2
 
         # state size. K x 4 x 4
-        main.add_module(f'final.{cndf}-1.conv', nn.Conv2d(cndf, 1, 4, 1, 0, bias=False))
+        cndfName = str.format("final.{}-1.conv", cndf)
+        main.add_module(cndfName, nn.Conv2d(cndf, 1, 4, 1, 0, bias=False))
         self.main = main
 
 
@@ -40,9 +45,12 @@ class DCGAN_D(nn.Module):
 
 class DCGAN_G(nn.Module):
     def deconv_block(self, main, name, inf, of, a, b, c, bn=True):
-        main.add_module(f'{name}-{inf}.{of}.convt', nn.ConvTranspose2d(inf, of, a, b, c, bias=False))
-        main.add_module(f'{name}-{of}.batchnorm', nn.BatchNorm2d(of))
-        main.add_module(f'{name}-{of}.relu', nn.ReLU(inplace=True))
+        convtName = str.format("{}-{}.{}.convt", name, inf, of)
+        main.add_module(convtName, nn.ConvTranspose2d(inf, of, a, b, c, bias=False))
+        batchnormName = str.format("{}-{}.batchnorm", name, of)
+        main.add_module(batchnormName, nn.BatchNorm2d(of))
+        reluName = str.format("{}-{}.relu", name, of)
+        main.add_module(reluName, nn.ReLU(inplace=True))
 
     def __init__(self, isize, nz, nc, ngf, ngpu, n_extra_layers=0):
         super(DCGAN_G, self).__init__()
@@ -61,10 +69,13 @@ class DCGAN_G(nn.Module):
             cngf //= 2; csize *= 2
 
         for t in range(n_extra_layers):
-            self.deconv_block(main, f'extra-{t}', cngf, cngf, 3, 1, 1)
+            extraName = str.format("extra-{}", t)
+            self.deconv_block(main, extraName, cngf, cngf, 3, 1, 1)
 
-        main.add_module(f'final.{cngf}-{nc}.convt', nn.ConvTranspose2d(cngf, nc, 4, 2, 1, bias=False))
-        main.add_module(f'final.{nc}.tanh', nn.Tanh())
+        cnfgName = str.format("final.{}-{}.convt", cngf, nc)
+        main.add_module(cnfgName, nn.ConvTranspose2d(cngf, nc, 4, 2, 1, bias=False))
+        ncName = str.format("final.{}.tanh", nc)
+        main.add_module(ncName, nn.Tanh())
         self.main = main
 
     def forward(self, input):
