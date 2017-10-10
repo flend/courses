@@ -75,8 +75,8 @@ class DCGAN_G(nn.Module):
 
         cnfgName = str.format("final.{}-{}.convt", cngf, nc)
         main.add_module(cnfgName, nn.ConvTranspose2d(cngf, nc, 4, 2, 1, bias=False))
-        ncName = str.format("final.{}.tanh", nc)
-        main.add_module(ncName, nn.Tanh())
+        ncName = str.format("final.{}.sigmoid", nc)
+        main.add_module(ncName, nn.Sigmoid())
         self.main = main
 
     def forward(self, input):
