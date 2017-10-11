@@ -52,6 +52,64 @@ class DCGAN_D(nn.Module):
         output = output.mean(0)
         return output.view(1)
 
+class DCGAN_GU2(nn.Module):
+    def upsample_block(self, main, name, inf, of):
+        upsampleName = str.format("{}-{}.{}.upsample", name, inf, of)
+        main.add_module(upsampleName, nn.Upsample(scale_factor=2, mode="nearest"))
+        convtName = str.format("{}-{}.{}.convt", name, inf, of)
+        main.add_module(convtName, nn.ConvTranspose2d(inf, of, 1, 1, 0, bias=False))
+        batchnormName = str.format("{}-{}.batchnorm", name, of)
+        main.add_module(batchnormName, nn.BatchNorm2d(of))
+        reluName = str.format("{}-{}.relu", name, of)
+        main.add_module(reluName, nn.ReLU(inplace=True))
+
+    def deconv_block(self, main, name, inf, of, a, b, c):
+        convtName = str.format("{}-{}.{}.convt", name, inf, of)
+        main.add_module(convtName, nn.ConvTranspose2d(inf, of, a, b, c, bias=False))
+        batchnormName = str.format("{}-{}.batchnorm", name, of)
+        main.add_module(batchnormName, nn.BatchNorm2d(of))
+        reluName = str.format("{}-{}.relu", name, of)
+        main.add_module(reluName, nn.ReLU(inplace=True))
+
+        #netG = DCGAN_G(sz, nz, 1, 64, 1, 1).cuda()
+    def __init__(self, isize, nz, nc, ngf, ngpu, n_extra_layers=0):
+        super(DCGAN_GU2, self).__init__()
+        self.ngpu = ngpu
+        assert isize % 16 == 0, "isize has to be a multiple of 16"
+
+        #cngf = 32 * 16 (sz / 4) = 512
+        cngf, tisize = ngf//2, 4
+        while tisize != isize: cngf *= 2; tisize *= 2
+
+        main = nn.Sequential()
+        # kernel size 4 deconv on original noise
+        self.deconv_block(main, 'initial', nz, cngf, 4, 1, 0)
+
+        csize, cndf = 4, cngf
+        while csize < isize//2:
+            # Reduce filters by half, double size of image, until half original size
+            # Perform 5 times
+            self.upsample_block(main, 'pyramid', cngf, cngf//2)
+            cngf //= 2; csize *= 2
+
+        for t in range(n_extra_layers):
+            extraName = str.format("extra-{}", t)
+            # Extra deconv, does not affect size
+            self.deconv_block(main, extraName, cngf, cngf, 3, 1, 1)
+
+        cnfgName = str.format("final.{}-{}.convt", cngf, nc)
+        # Final deconv to full sized image
+        main.add_module(cnfgName, nn.ConvTranspose2d(cngf, nc, 4, 2, 1, bias=False))
+        ncName = str.format("final.{}.sigmoid", nc)
+        main.add_module(ncName, nn.Sigmoid())
+        self.main = main
+
+    def forward(self, input):
+        gpu_ids = None
+        if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
+            gpu_ids = range(self.ngpu)
+        return nn.parallel.data_parallel(self.main, input, gpu_ids)
+
 class DCGAN_G(nn.Module):
     def deconv_block(self, main, name, inf, of, a, b, c, bn=True):
         convtName = str.format("{}-{}.{}.convt", name, inf, of)
